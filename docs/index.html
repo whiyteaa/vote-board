@@ -212,7 +212,7 @@ function render() {
   const c1ok = ch1.items.length > 0, c2ok = ch2.items.length > 0;
   setDot('d1', c1ok ? 'ok' : (ch1.error ? 'err' : 'init'));
   setDot('d2', c2ok ? 'ok' : (ch2.error ? 'err' : 'init'));
-  document.getElementById('s1').textContent = c1ok ? ch1.items.length + ' 项(前100)' : (ch1.error ? '暂不可用' : '加载中');
+  document.getElementById('s1').textContent = c1ok ? '前100名' : (ch1.error ? '暂不可用' : '加载中');
   document.getElementById('s2').textContent = c2ok ? ch2.items.length + ' 项' : (ch2.error ? '暂不可用' : '加载中');
   document.getElementById('v1').textContent = fmtN(c1ok ? ch1.items.reduce((a, b) => a + b.votes, 0) : null);
   const v2val = c2ok ? (ch2.totalVotes != null ? ch2.totalVotes : ch2.items.reduce((a, b) => a + b.votes, 0)) : null;
