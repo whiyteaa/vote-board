@@ -1,15 +1,17 @@
-name: collect
-# 自续采集链：push 触发 → 采集 → 提交 data.json → 产生新 push → 下一轮
-# cron 仅作为断链保险重新点火；2026-10-19 (北京时间) 内置自停，无需外部干预
+name: collect-a
+# 采集链 A：由 B 完成时接力触发（workflow_run 不受 GITHUB_TOKEN 防递归限制）
+# 2026-10-19 00:00（北京时间）自动互相禁用停链
 on:
+  workflow_run:
+    workflows: [collect-b]
+    types: [completed]
   schedule:
     - cron: '2-57/5 * * * *'
-  push:
-    branches: [main]
   workflow_dispatch: {}
 
 permissions:
   contents: write
+  actions: write
 
 concurrency:
   group: collect
@@ -20,11 +22,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Expire guard (2026-10-19 00:00 北京时间)
+      - name: Expire guard
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           if [ "$(date +%s)" -ge "$(date -u -d '2026-10-18T16:00:00Z' +%s)" ]; then
-            echo "::notice::已到保留期限(10-19)，采集链自动停止"
-            exit 1
+            echo "::notice::已到保留期限(10-19)，停用采集链"
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/collect.yml/disable" || true
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/collect-b.yml/disable" || true
+            exit 0
           fi
       - name: Throttle (~5min/轮)
         run: |
@@ -32,7 +38,7 @@ jobs:
           NOW=$(date +%s%3N)
           WAIT=$(( 300 - (NOW - AGE) / 1000 ))
           if [ "$WAIT" -gt 0 ] && [ "$WAIT" -lt 360 ]; then
-            echo "数据 ${WAIT}s 前已更新过，等待 ${WAIT}s 再采集"
+            echo "上轮数据仅 $(( (NOW-AGE)/1000 ))s 前，等待 ${WAIT}s"
             sleep "$WAIT"
           fi
       - uses: actions/checkout@v4
@@ -44,14 +50,14 @@ jobs:
           npm i --no-save playwright-core@latest playwright@latest
           npx playwright install chromium --with-deps
       - name: Collect votes
-        run: node collector.mjs
-      - name: Commit data (chain fuel)
+        run: node collector.mjs || true
+      - name: Commit data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/data.json
           if git diff --cached --quiet; then
-            echo "no change (采集失败?), 链依赖 cron/手动触发重启"
+            echo "no change"
           else
             git commit -m "data: $(date -u '+%F %T')"
             git pull --rebase --autostash || true
