@@ -27,6 +27,8 @@
   .dot.loading { background: var(--gold); }
   .dot.init { background: var(--muted); }
   .card .big { font-size: 26px; font-weight: 700; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .card .name span:first-child { white-space: nowrap; }
+  .card .name #s1, .card .name #s2 { white-space: nowrap; }
   .card .meta { color: var(--muted); font-size: 11px; margin-top: 4px; }
   .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; align-items: center; }
   .tabs { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 3px; max-width: 100%; overflow-x: auto; }
@@ -213,7 +215,9 @@ function render() {
   document.getElementById('s1').textContent = c1ok ? ch1.items.length + ' 项(前100)' : (ch1.error ? '暂不可用' : '加载中');
   document.getElementById('s2').textContent = c2ok ? ch2.items.length + ' 项' : (ch2.error ? '暂不可用' : '加载中');
   document.getElementById('v1').textContent = fmtN(c1ok ? ch1.items.reduce((a, b) => a + b.votes, 0) : null);
-  document.getElementById('v2').textContent = fmtN(c2ok ? (ch2.totalVotes != null ? ch2.totalVotes : ch2.items.reduce((a, b) => a + b.votes, 0)) : null);
+  const v2val = c2ok ? (ch2.totalVotes != null ? ch2.totalVotes : ch2.items.reduce((a, b) => a + b.votes, 0)) : null;
+  document.getElementById('v2').textContent = fmtN(v2val);
+  document.getElementById('vt').textContent = fmtN((c1ok ? ch1.items.reduce((a, b) => a + b.votes, 0) : 0) + (v2val || 0));
   const rows = buildRows();
   LAST_ROWS = rows;
   document.getElementById('cnt').textContent = rows.length;
