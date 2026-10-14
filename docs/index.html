@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>第二届综合交通运输大模型智能体创新应用大赛 · 双渠道实时票数</title>
+<style>
+  :root {
+    --bg: #0f1420; --card: #1a2233; --card2: #212b40; --line: #2c3a55;
+    --text: #e8edf7; --muted: #8fa0bd; --accent: #4f8cff; --accent2: #22c6a8;
+    --gold: #f5c451; --silver: #c6cddc; --bronze: #e0975f; --up: #2ecc8f; --down: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif; min-height: 100vh; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 14px 60px; }
+  header h1 { font-size: 20px; font-weight: 700; letter-spacing: .5px; }
+  header .sub { color: var(--muted); font-size: 12.5px; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+  .countdown { color: var(--gold); font-weight: 600; }
+  .banner { display: none; background: #3a2b16; border: 1px solid #6b5320; color: var(--gold); border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-top: 12px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 18px 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px; }
+  .card .name { color: var(--muted); font-size: 11.5px; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; flex: none; }
+  .dot.ok { background: var(--up); box-shadow: 0 0 6px var(--up); }
+  .dot.err { background: var(--down); box-shadow: 0 0 6px var(--down); }
+  .dot.loading { background: var(--gold); }
+  .dot.init { background: var(--muted); }
+  .card .big { font-size: 26px; font-weight: 700; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .card .meta { color: var(--muted); font-size: 11px; margin-top: 4px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 14px; align-items: center; }
+  .tabs { display: inline-flex; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 3px; max-width: 100%; overflow-x: auto; }
+  .tabs button { border: 0; background: transparent; color: var(--muted); padding: 7px 12px; border-radius: 8px; cursor: pointer; font-size: 12.5px; white-space: nowrap; }
+  .tabs button.active { background: var(--accent); color: #fff; font-weight: 600; }
+  input[type=text], select { background: var(--card); border: 1px solid var(--line); color: var(--text); border-radius: 10px; padding: 8px 12px; font-size: 13px; outline: none; max-width: 100%; }
+  input[type=text]:focus, select:focus { border-color: var(--accent); }
+  .refresh { margin-left: auto; color: var(--muted); font-size: 11.5px; display: flex; gap: 8px; align-items: center; }
+  .refresh button { background: var(--card2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 12px; }
+  .tablewrap { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: auto; max-height: 72vh; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 860px; }
+  thead th { position: sticky; top: 0; background: var(--card2); color: var(--muted); font-weight: 600; text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; z-index: 2; }
+  tbody td { padding: 10px 12px; border-bottom: 1px solid #222c44; vertical-align: middle; }
+  tbody tr:hover { background: #1e2840; }
+  .rk { font-weight: 700; width: 56px; text-align: center; font-variant-numeric: tabular-nums; }
+  .rk.top1 { color: var(--gold); } .rk.top2 { color: var(--silver); } .rk.top3 { color: var(--bronze); }
+  .medal { font-size: 15px; margin-right: 2px; }
+  .no { color: var(--accent); font-weight: 600; white-space: nowrap; }
+  .t { max-width: 460px; }
+  .t .title { line-height: 1.45; }
+  .t .org { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .badge { display: inline-block; background: var(--card2); border: 1px solid var(--line); color: var(--muted); font-size: 11px; padding: 1px 8px; border-radius: 20px; margin-top: 3px; white-space: nowrap; }
+  .num { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; white-space: nowrap; }
+  .num.total { color: var(--accent2); font-size: 15px; }
+  .delta { font-size: 11.5px; white-space: nowrap; width: 70px; }
+  .delta.up { color: var(--up); } .delta.flat { color: #57657f; }
+  .miss { color: #5a6884; }
+  footer { color: var(--muted); font-size: 11.5px; margin-top: 14px; line-height: 1.8; }
+  .err { color: var(--down); }
+  @media (max-width: 700px) {
+    header h1 { font-size: 16px; }
+    .card .big { font-size: 20px; }
+    table { min-width: 560px; font-size: 12.5px; }
+    th:nth-child(4), td:nth-child(4), th:nth-child(8), td:nth-child(8) { display: none; } /* 手机隐藏赛道/增量列 */
+    .t { max-width: 200px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>第二届综合交通运输大模型智能体创新应用大赛 · 网络投票实时统计</h1>
+    <div class="sub">
+      <span>渠道一：中国交通报（H5）</span>
+      <span>渠道二：扬帆评选（votezx）</span>
+      <span class="countdown" id="countdown"></span>
+    </div>
+    <div class="banner" id="banner"></div>
+  </header>
+
+  <div class="cards">
+    <div class="card">
+      <div class="name"><span><i class="dot init" id="d1"></i>渠道一 · 中国交通报</span><span id="s1"></span></div>
+      <div class="big" id="v1">—</div>
+      <div class="meta" id="m1">等待数据…</div>
+    </div>
+    <div class="card">
+      <div class="name"><span><i class="dot init" id="d2"></i>渠道二 · 扬帆评选</span><span id="s2"></span></div>
+      <div class="big" id="v2">—</div>
+      <div class="meta" id="m2">等待数据…</div>
+    </div>
+    <div class="card">
+      <div class="name"><span>双渠道合计</span></div>
+      <div class="big" id="vt">—</div>
+      <div class="meta">参赛项目 <span id="cnt">—</span> 个</div>
+    </div>
+    <div class="card">
+      <div class="name"><span>领跑项目</span></div>
+      <div class="big" id="lead" style="font-size:15px; line-height:1.5; margin-top:10px;">—</div>
+      <div class="meta" id="leadSub"></div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="tabs" id="tabs">
+      <button data-tab="total" class="active">总榜（双渠道合计）</button>
+      <button data-tab="ch1">渠道一榜</button>
+      <button data-tab="ch2">渠道二榜</button>
+    </div>
+    <input type="text" id="q" placeholder="搜索编号 / 项目名…" style="width: 190px">
+    <select id="groupSel"><option value="">全部赛道</option></select>
+    <div class="refresh">
+      <span id="updated"></span>
+      <button onclick="tick(true)">刷新</button>
+    </div>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th>排名</th><th>编号</th><th>项目</th><th>赛道</th>
+          <th style="text-align:right">渠道一</th><th style="text-align:right">渠道二</th>
+          <th style="text-align:right">合计</th><th>较上次</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <footer>
+    <div>渠道二数据为页面实时拉取（约30秒一次）；渠道一因平台反爬限制，由服务器每约5分钟采集一次（仅展示票数前100名，「未进前100」≠0票）。「较上次」为相邻两次刷新的合计增量。</div>
+    <div id="errs"></div>
+  </footer>
+</div>
+
+<script>
+const END_VOTE = new Date('2026-10-15T23:59:59+08:00').getTime();
+const END_HOST = new Date('2026-10-19T00:00:00+08:00').getTime();
+const LS_KEY = 'voteBoardPrevV1';
+const MEDALS = ['🥇', '🥈', '🥉'];
+
+let ch1 = { items: [], updatedAt: null, error: null };   // 来自 data.json
+let ch2 = { items: [], updatedAt: null, totalVotes: null, error: null }; // 实时拉取
+let prevMap = null;
+try { prevMap = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch (e) {}
+let tab = 'total';
+
+function fmtT(ts) { return ts ? new Date(ts).toLocaleTimeString('zh-CN', { hour12: false }) : '—'; }
+function fmtN(n) { return n == null ? '—' : Number(n).toLocaleString(); }
+
+function countdown() {
+  const el = document.getElementById('countdown');
+  if (Date.now() > END_HOST) {
+    el.textContent = '统计服务已于10月19日到期停止';
+    document.getElementById('banner').style.display = 'block';
+    document.getElementById('banner').textContent = '⏸ 本统计页面已到保留期限（10月19日），数据不再更新，仅供参考留存。';
+    return;
+  }
+  const ms = END_VOTE - Date.now();
+  if (ms <= 0) { el.textContent = '投票已截止（数据仍在统计中）'; return; }
+  const h = Math.floor(ms / 3600000), m = Math.floor(ms % 3600000 / 60000), s = Math.floor(ms % 60000 / 1000);
+  el.textContent = `距投票截止 ${h}小时${m}分${s}秒`;
+}
+
+// ---------- 数据获取 ----------
+async function fetchStatic() {
+  try {
+    const r = await fetch('./data.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } catch (e) { return null; }
+}
+
+async function fetchCh2Live() {
+  const H = { 'Content-Type': 'application/json' };
+  const [lr, ir] = await Promise.all([
+    fetch('https://api.votezx.com/api/vote/playersearch', { method: 'POST', headers: H, body: JSON.stringify({ action_id: 9853, page: 1, limit: 300, category: 0 }) }),
+    fetch('https://api.votezx.com/api/vote/info', { method: 'POST', headers: H, body: JSON.stringify({ action_id: 9853, type: 3 }) }),
+  ]);
+  const j = await lr.json();
+  if (!j || j.code !== 1 || !j.data || !Array.isArray(j.data.list)) throw new Error((j && j.msg) || '接口异常');
+  let total = null;
+  try { const info = await ir.json(); total = Number(info && info.data && info.data.votenum) || null; } catch (e) {}
+  const items = j.data.list.map(x => ({ no: String(x.no), title: x.name, votes: Number(x.votenum) || 0, group: x.groupname_value || '' }));
+  return { items, totalVotes: total, updatedAt: Date.now() };
+}
+
+// ---------- 合并 ----------
+function buildRows() {
+  const map = new Map();
+  for (const it of ch1.items) map.set(it.no, { no: it.no, title: it.title, ch1: it.votes, ch2: null, group: '' });
+  for (const it of ch2.items) {
+    const cur = map.get(it.no);
+    if (cur) { cur.ch2 = it.votes; cur.group = it.group; if (!cur.title) cur.title = it.title; }
+    else map.set(it.no, { no: it.no, title: it.title, ch1: null, ch2: it.votes, group: it.group });
+  }
+  const rows = [...map.values()].map(r => ({ ...r, total: (r.ch1 || 0) + (r.ch2 || 0) }));
+  rows.sort((a, b) => b.total - a.total || (b.ch1 || 0) - (a.ch1 || 0) || (b.ch2 || 0) - (a.ch2 || 0) || a.no.localeCompare(b.no));
+  rows.forEach((r, i) => {
+    r.rank = i + 1;
+    if (prevMap) { const p = prevMap[r.no]; r.delta = p == null ? null : r.total - p; }
+  });
+  return rows;
+}
+
+// ---------- 渲染 ----------
+let LAST_ROWS = null;
+function render() {
+  const setDot = (id, st) => { document.getElementById(id).className = 'dot ' + (st || 'init'); };
+  const c1ok = ch1.items.length > 0, c2ok = ch2.items.length > 0;
+  setDot('d1', c1ok ? 'ok' : (ch1.error ? 'err' : 'init'));
+  setDot('d2', c2ok ? 'ok' : (ch2.error ? 'err' : 'init'));
+  document.getElementById('s1').textContent = c1ok ? ch1.items.length + ' 项(前100)' : (ch1.error ? '暂不可用' : '加载中');
+  document.getElementById('s2').textContent = c2ok ? ch2.items.length + ' 项' : (ch2.error ? '暂不可用' : '加载中');
+  document.getElementById('v1').textContent = fmtN(c1ok ? ch1.items.reduce((a, b) => a + b.votes, 0) : null);
+  document.getElementById('v2').textContent = fmtN(c2ok ? (ch2.totalVotes != null ? ch2.totalVotes : ch2.items.reduce((a, b) => a + b.votes, 0)) : null);
+  const rows = buildRows();
+  LAST_ROWS = rows;
+  document.getElementById('cnt').textContent = rows.length;
+  document.getElementById('m1').textContent = '更新于 ' + fmtT(ch1.updatedAt);
+  document.getElementById('m2').textContent = '更新于 ' + fmtT(ch2.updatedAt);
+  if (rows[0]) {
+    document.getElementById('lead').textContent = rows[0].no + ' · ' + rows[0].title.slice(0, 40);
+    document.getElementById('leadSub').textContent = '合计 ' + fmtN(rows[0].total) + ' 票';
+  }
+  const errs = [];
+  if (ch1.error) errs.push('渠道一：' + ch1.error);
+  if (ch2.error) errs.push('渠道二实时数据获取失败' + (ch2.error ? '（' + ch2.error + '）' : ''));
+  document.getElementById('errs').innerHTML = errs.map(e => `<div class="err">${e}</div>`).join('');
+
+  const gs = [...new Set(rows.map(r => r.group).filter(Boolean))];
+  const sel = document.getElementById('groupSel');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">全部赛道</option>' + gs.map(g => `<option ${g === cur ? 'selected' : ''}>${g}</option>`).join('');
+
+  const q = document.getElementById('q').value.trim().toLowerCase();
+  let list = rows.filter(r => {
+    if (tab === 'ch1' && r.ch1 == null) return false;
+    if (tab === 'ch2' && r.ch2 == null) return false;
+    if (sel.value && r.group !== sel.value) return false;
+    if (q && !(r.no.includes(q) || r.title.toLowerCase().includes(q))) return false;
+    return true;
+  });
+  if (tab === 'ch1') list = [...list].sort((a, b) => b.ch1 - a.ch1);
+  if (tab === 'ch2') list = [...list].sort((a, b) => b.ch2 - a.ch2);
+
+  document.getElementById('tbody').innerHTML = list.map((r, i) => {
+    const rank = tab === 'total' ? r.rank : i + 1;
+    const medal = rank <= 3 ? `<span class="medal">${MEDALS[rank - 1]}</span>` : '';
+    const cls = rank === 1 ? 'top1' : rank === 2 ? 'top2' : rank === 3 ? 'top3' : '';
+    const org = r.title.includes('：') ? r.title.split('：')[0] : '';
+    const name = r.title.includes('：') ? r.title.split('：').slice(1).join('：') : r.title;
+    const d = r.delta;
+    const deltaHtml = d == null ? '<span class="delta flat">—</span>' : d > 0 ? `<span class="delta up">▲ ${d}</span>` : '<span class="delta flat">—</span>';
+    return `<tr>
+      <td class="rk ${cls}">${medal}${rank}</td>
+      <td class="no">${r.no}</td>
+      <td class="t"><div class="title">${name || r.title}</div>${org ? `<div class="org">${org}</div>` : ''}</td>
+      <td>${r.group ? `<span class="badge">${r.group}</span>` : '<span class="miss">—</span>'}</td>
+      <td class="num">${r.ch1 == null ? '<span class="miss" title="渠道一只展示票数前100名">未进前100</span>' : fmtN(r.ch1)}</td>
+      <td class="num">${r.ch2 == null ? '<span class="miss">未上榜</span>' : fmtN(r.ch2)}</td>
+      <td class="num total">${fmtN(r.total)}</td>
+      <td>${deltaHtml}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" style="text-align:center;color:#57657f;padding:40px">无匹配数据</td></tr>';
+
+  document.getElementById('updated').textContent = '刷新于 ' + fmtT(Date.now());
+}
+
+function savePrev() {
+  if (!LAST_ROWS) return;
+  const m = {};
+  for (const r of LAST_ROWS) m[r.no] = r.total;
+  try { localStorage.setItem(LS_KEY, JSON.stringify(m)); } catch (e) {}
+}
+
+let busy = false;
+async function tick(manual) {
+  if (busy) return;
+  busy = true;
+  try {
+    const [staticData, live] = await Promise.all([
+      fetchStatic(),
+      fetchCh2Live().then(d => d).catch(e => ({ error: e.message })),
+    ]);
+    if (staticData && staticData.ch1 && staticData.ch1.items) {
+      ch1 = staticData.ch1;
+      // data.json 里的渠道二快照作为实时失败的兜底
+    } else if (staticData && staticData.ch1 && staticData.ch1.error) {
+      ch1 = { items: [], updatedAt: staticData.ch1.updatedAt, error: staticData.ch1.error };
+    }
+    if (live && live.items) {
+      ch2 = live;
+      if (!ch1.items.length && staticData && staticData.ch2 && staticData.ch2.items) {
+        // 渠道一无数据时也照常展示渠道二
+      }
+    } else if (staticData && staticData.ch2 && staticData.ch2.items) {
+      ch2 = staticData.ch2;
+      ch2.error = live && live.error;
+    } else {
+      if (live && live.error) ch2.error = live.error;
+    }
+    render();
+    savePrev();
+  } finally { busy = false; }
+}
+
+document.getElementById('tabs').addEventListener('click', (e) => {
+  if (e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  tab = e.target.dataset.tab;
+  render();
+});
+document.getElementById('q').addEventListener('input', render);
+document.getElementById('groupSel').addEventListener('change', render);
+
+countdown();
+setInterval(countdown, 1000);
+tick();
+setInterval(tick, 30000);
+</script>
+</body>
+</html>
