@@ -1,0 +1,62 @@
+name: collect-b
+# 采集链 B：由 A 完成时接力触发，与 collect-a 组成闭环（含节流与到期自停）
+on:
+  workflow_run:
+    workflows: [collect-a]
+    types: [completed]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Expire guard
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$(date +%s)" -ge "$(date -u -d '2026-10-18T16:00:00Z' +%s)" ]; then
+            echo "::notice::已到保留期限(10-19)，停用采集链"
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/collect.yml/disable" || true
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/actions/workflows/collect-b.yml/disable" || true
+            exit 0
+          fi
+      - name: Throttle (~5min/轮)
+        run: |
+          AGE=$(curl -s https://raw.githubusercontent.com/whiyteaa/vote-board/main/docs/data.json | head -c 200 | grep -o '"generatedAt":[0-9]*' | grep -o '[0-9]*' || echo 0)
+          NOW=$(date +%s%3N)
+          WAIT=$(( 300 - (NOW - AGE) / 1000 ))
+          if [ "$WAIT" -gt 0 ] && [ "$WAIT" -lt 360 ]; then
+            echo "上轮数据仅 $(( (NOW-AGE)/1000 ))s 前，等待 ${WAIT}s"
+            sleep "$WAIT"
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install deps
+        run: |
+          npm i --no-save playwright-core@latest playwright@latest
+          npx playwright install chromium --with-deps
+      - name: Collect votes
+        run: node collector.mjs || true
+      - name: Commit data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data.json
+          if git diff --cached --quiet; then
+            echo "no change"
+          else
+            git commit -m "data: $(date -u '+%F %T')"
+            git pull --rebase --autostash || true
+            git push
+          fi
