@@ -1,7 +1,7 @@
 name: collect
 on:
   schedule:
-    - cron: '*/5 * * * *'   # 每5分钟（UTC）
+    - cron: '2-57/5 * * * *'   # 每5分钟，避开整点高峰（UTC）
   workflow_dispatch: {}
 
 permissions:
