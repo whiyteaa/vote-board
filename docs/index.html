@@ -18,6 +18,14 @@
   header .sub { color: var(--muted); font-size: 12.5px; margin-top: 6px; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
   .countdown { color: var(--gold); font-weight: 600; }
   .banner { display: none; background: #3a2b16; border: 1px solid #6b5320; color: var(--gold); border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-top: 12px; }
+  .focus { position: sticky; top: 6px; z-index: 10; background: linear-gradient(135deg, #16233f 0%, #1a2233 70%); border: 1.5px solid var(--accent); box-shadow: 0 4px 20px rgba(79, 140, 255, .3); border-radius: 12px; padding: 11px 14px; margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; }
+  .focus-label { color: var(--gold); font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+  .focus-main { font-size: 15px; font-weight: 700; display: flex; gap: 8px; align-items: center; min-width: 0; }
+  .focus-main .no { color: var(--accent); }
+  .focus-main #fTitle { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 320px; }
+  .focus-stats { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; color: var(--muted); font-size: 12.5px; margin-left: auto; }
+  .focus-rank { color: var(--gold); font-weight: 700; font-size: 14.5px; }
+  .focus-delta { color: var(--up); font-weight: 700; }
   .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 18px 0; }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px; }
   .card .name { color: var(--muted); font-size: 11.5px; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
@@ -79,6 +87,16 @@
     <div class="banner" id="banner"></div>
   </header>
 
+  <div class="focus" id="focus">
+    <div class="focus-label">⭐ 重点关注</div>
+    <div class="focus-main"><span class="no">602</span><span id="fTitle">…</span></div>
+    <div class="focus-stats">
+      <span class="focus-rank" id="fRank">加载中</span>
+      <span id="fVotes">渠道一 — · 渠道二 — · 合计 —</span>
+      <span class="focus-delta" id="fDelta"></span>
+    </div>
+  </div>
+
   <div class="cards">
     <div class="card">
       <div class="name"><span><i class="dot init" id="d1"></i>渠道一 · 中国交通报</span><span id="s1"></span></div>
@@ -136,10 +154,11 @@
 </div>
 
 <script>
-const END_VOTE = new Date('2026-10-15T23:59:59+08:00').getTime();
+const END_VOTE = new Date('2026-10-18T23:59:59+08:00').getTime();
 const END_HOST = new Date('2026-10-19T00:00:00+08:00').getTime();
 const LS_KEY = 'voteBoardPrevV1';
 const MEDALS = ['🥇', '🥈', '🥉'];
+const FOCUS_NO = '602'; // 重点关注项目编号
 
 let ch1 = { items: [], updatedAt: null, error: null };   // 来自 data.json
 let ch2 = { items: [], updatedAt: null, totalVotes: null, error: null }; // 实时拉取
@@ -210,6 +229,16 @@ let LAST_ROWS = null;
 function render() {
   const setDot = (id, st) => { document.getElementById(id).className = 'dot ' + (st || 'init'); };
   const c1ok = ch1.items.length > 0, c2ok = ch2.items.length > 0;
+  const rows0 = buildRows();
+  // 重点关注卡片（置顶吸顶）
+  const f = rows0.find(r => r.no === FOCUS_NO);
+  if (f) {
+    document.getElementById('fTitle').textContent = f.title;
+    document.getElementById('fRank').textContent = `总榜第 ${f.rank} 名`;
+    document.getElementById('fVotes').textContent =
+      `渠道一 ${f.ch1 == null ? '未进前100' : fmtN(f.ch1)} · 渠道二 ${f.ch2 == null ? '—' : fmtN(f.ch2)} · 合计 ${fmtN(f.total)} 票`;
+    document.getElementById('fDelta').textContent = f.delta > 0 ? `▲ ${f.delta}` : '';
+  }
   setDot('d1', c1ok ? 'ok' : (ch1.error ? 'err' : 'init'));
   setDot('d2', c2ok ? 'ok' : (ch2.error ? 'err' : 'init'));
   document.getElementById('s1').textContent = c1ok ? '前100名' : (ch1.error ? '暂不可用' : '加载中');
